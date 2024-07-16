@@ -391,7 +391,11 @@
       "type": "process",
       "problemMatcher": "$msCompile",
       "options": {
+<<<<<<< HEAD
         "cwd": "${workspaceFolder}/dotnet\\samples\\Demos\\CreateChatGptPlugin\\MathPlugin\\azure-function"
+=======
+        "cwd": "${workspaceFolder}/dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function"
+>>>>>>> f98d5ecea (update)
       }
     },
     {
@@ -410,7 +414,11 @@
       },
       "problemMatcher": "$msCompile",
       "options": {
+<<<<<<< HEAD
         "cwd": "${workspaceFolder}/dotnet\\samples\\Demos\\CreateChatGptPlugin\\MathPlugin\\azure-function"
+=======
+        "cwd": "${workspaceFolder}/dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function"
+>>>>>>> f98d5ecea (update)
       }
     },
     {
@@ -426,7 +434,11 @@
       "type": "process",
       "problemMatcher": "$msCompile",
       "options": {
+<<<<<<< HEAD
         "cwd": "${workspaceFolder}/dotnet\\samples\\Demos\\CreateChatGptPlugin\\MathPlugin\\azure-function"
+=======
+        "cwd": "${workspaceFolder}/dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function"
+>>>>>>> f98d5ecea (update)
       }
     },
     {
@@ -443,14 +455,22 @@
       "dependsOn": "clean release (functions)",
       "problemMatcher": "$msCompile",
       "options": {
+<<<<<<< HEAD
         "cwd": "${workspaceFolder}/dotnet\\samples\\Demos\\CreateChatGptPlugin\\MathPlugin\\azure-function"
+=======
+        "cwd": "${workspaceFolder}/dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function"
+>>>>>>> f98d5ecea (update)
       }
     },
     {
       "type": "func",
       "dependsOn": "build (functions)",
       "options": {
+<<<<<<< HEAD
         "cwd": "${workspaceFolder}/dotnet\\samples\\Demos\\CreateChatGptPlugin\\MathPlugin\\azure-function/bin/Debug/net8.0"
+=======
+        "cwd": "${workspaceFolder}/dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function/bin/Debug/net8.0"
+>>>>>>> f98d5ecea (update)
       },
       "command": "host start",
       "isBackground": true,

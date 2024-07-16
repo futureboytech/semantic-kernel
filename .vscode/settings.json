@@ -98,9 +98,17 @@
   ],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
+<<<<<<< HEAD
   "azureFunctions.deploySubpath": "dotnet\\samples\\Demos\\CreateChatGptPlugin\\MathPlugin\\azure-function/bin/Release/net8.0/publish",
   "azureFunctions.projectLanguage": "C#",
   "azureFunctions.projectRuntime": "~4",
   "debug.internalConsoleOptions": "neverOpen",
+=======
+  "azureFunctions.deploySubpath": "dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function/bin/Release/net8.0/publish",
+  "azureFunctions.projectLanguage": "C#",
+  "azureFunctions.projectRuntime": "~4",
+  "debug.internalConsoleOptions": "neverOpen",
+  "azureFunctions.projectSubpath": "dotnet/samples/Demos/CreateChatGptPlugin/MathPlugin/azure-function",
+>>>>>>> f98d5ecea (update)
   "azureFunctions.preDeployTask": "publish (functions)"
 }
