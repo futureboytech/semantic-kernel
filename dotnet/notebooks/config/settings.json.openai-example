@@ -2,6 +2,6 @@
   "type":   "openai",
   "endpoint": "NOT-USED-BUT-REQUIRED-FOR-PARSER",
   "model":  "gpt-3.5-turbo",
-  "apikey": "... your OpenAI key ...",
+  "apikey": "8c4376105f754bf99ef6c3c06211efd2",
   "org":    ""
 }
