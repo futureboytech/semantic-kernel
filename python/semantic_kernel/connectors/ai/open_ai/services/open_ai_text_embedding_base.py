@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 @experimental_class
 class OpenAITextEmbeddingBase(OpenAIHandler, EmbeddingGeneratorBase):
+    """Base class for OpenAI text embedding services."""
+
     @override
     async def generate_embeddings(
         self,
@@ -32,7 +34,7 @@ class OpenAITextEmbeddingBase(OpenAIHandler, EmbeddingGeneratorBase):
         **kwargs: Any,
     ) -> ndarray:
         raw_embeddings = await self.generate_raw_embeddings(texts, settings, batch_size, **kwargs)
-        return array([array(emb) for emb in raw_embeddings])
+        return array(raw_embeddings)
 
     @override
     async def generate_raw_embeddings(
@@ -69,6 +71,6 @@ class OpenAITextEmbeddingBase(OpenAIHandler, EmbeddingGeneratorBase):
             raw_embeddings.extend(raw_embedding)
         return raw_embeddings
 
-    @override
     def get_prompt_execution_settings_class(self) -> type["PromptExecutionSettings"]:
+        """Get the request settings class."""
         return OpenAIEmbeddingPromptExecutionSettings

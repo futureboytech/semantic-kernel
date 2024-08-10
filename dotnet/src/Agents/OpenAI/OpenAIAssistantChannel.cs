@@ -16,7 +16,7 @@ internal sealed class OpenAIAssistantChannel(AssistantsClient client, string thr
     private readonly string _threadId = threadId;
 
     /// <inheritdoc/>
-    protected override async Task ReceiveAsync(IReadOnlyList<ChatMessageContent> history, CancellationToken cancellationToken)
+    protected override async Task ReceiveAsync(IEnumerable<ChatMessageContent> history, CancellationToken cancellationToken)
     {
         foreach (ChatMessageContent message in history)
         {
@@ -25,13 +25,13 @@ internal sealed class OpenAIAssistantChannel(AssistantsClient client, string thr
     }
 
     /// <inheritdoc/>
-    protected override IAsyncEnumerable<ChatMessageContent> InvokeAsync(
+    protected override IAsyncEnumerable<(bool IsVisible, ChatMessageContent Message)> InvokeAsync(
         OpenAIAssistantAgent agent,
         CancellationToken cancellationToken)
     {
         agent.ThrowIfDeleted();
 
-        return AssistantThreadActions.InvokeAsync(agent, this._client, this._threadId, pollingConfiguration, this.Logger, cancellationToken);
+        return AssistantThreadActions.InvokeAsync(agent, this._client, this._threadId, pollingConfiguration, this.Logger, agent.Kernel, agent.Arguments, cancellationToken);
     }
 
     /// <inheritdoc/>
