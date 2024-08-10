@@ -20,12 +20,6 @@ internal static class AssistantThreadActions
 {
     private const string FunctionDelimiter = "-";
 
-    private static readonly HashSet<AuthorRole> s_messageRoles =
-        [
-            AuthorRole.User,
-            AuthorRole.Assistant,
-        ];
-
     private static readonly HashSet<RunStatus> s_pollingStatuses =
         [
             RunStatus.Queued,
@@ -50,12 +44,7 @@ internal static class AssistantThreadActions
     /// <throws><see cref="KernelException"/> if a system message is present, without taking any other action</throws>
     public static async Task CreateMessageAsync(AssistantsClient client, string threadId, ChatMessageContent message, CancellationToken cancellationToken)
     {
-        if (!s_messageRoles.Contains(message.Role))
-        {
-            throw new KernelException($"Invalid message role: {message.Role}");
-        }
-
-        if (string.IsNullOrWhiteSpace(message.Content))
+        if (message.Items.Any(i => i is FunctionCallContent))
         {
             return;
         }
@@ -86,8 +75,6 @@ internal static class AssistantThreadActions
             messages = await client.GetMessagesAsync(threadId, limit: 100, ListSortOrder.Descending, after: lastId, null, cancellationToken).ConfigureAwait(false);
             foreach (ThreadMessage message in messages)
             {
-                AuthorRole role = new(message.Role.ToString());
-
                 string? assistantName = null;
                 if (!string.IsNullOrWhiteSpace(message.AssistantId) &&
                     !agentNames.TryGetValue(message.AssistantId, out assistantName))
@@ -101,23 +88,11 @@ internal static class AssistantThreadActions
 
                 assistantName ??= message.AssistantId;
 
-                foreach (MessageContent item in message.ContentItems)
+                ChatMessageContent content = GenerateMessageContent(assistantName, message);
+
+                if (content.Items.Count > 0)
                 {
-                    ChatMessageContent? content = null;
-
-                    if (item is MessageTextContent contentMessage)
-                    {
-                        content = GenerateTextMessageContent(assistantName, role, contentMessage);
-                    }
-                    else if (item is MessageImageFileContent contentImage)
-                    {
-                        content = GenerateImageFileContent(assistantName, role, contentImage);
-                    }
-
-                    if (content is not null)
-                    {
-                        yield return content;
-                    }
+                    yield return content;
                 }
 
                 lastId = message.Id;
@@ -134,14 +109,21 @@ internal static class AssistantThreadActions
     /// <param name="threadId">The thread identifier</param>
     /// <param name="pollingConfiguration">Config to utilize when polling for run state.</param>
     /// <param name="logger">The logger to utilize (might be agent or channel scoped)</param>
+    /// <param name="kernel">The <see cref="Kernel"/> plugins and other state.</param>
+    /// <param name="arguments">Optional arguments to pass to the agents's invocation, including any <see cref="PromptExecutionSettings"/>.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> to monitor for cancellation requests. The default is <see cref="CancellationToken.None"/>.</param>
     /// <returns>Asynchronous enumeration of messages.</returns>
-    public static async IAsyncEnumerable<ChatMessageContent> InvokeAsync(
+    /// <remarks>
+    /// The `arguments` parameter is not currently used by the agent, but is provided for future extensibility.
+    /// </remarks>
+    public static async IAsyncEnumerable<(bool IsVisible, ChatMessageContent Message)> InvokeAsync(
         OpenAIAssistantAgent agent,
         AssistantsClient client,
         string threadId,
         OpenAIAssistantConfiguration.PollingConfiguration pollingConfiguration,
         ILogger logger,
+        Kernel kernel,
+        KernelArguments? arguments,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (agent.IsDeleted)
@@ -149,7 +131,7 @@ internal static class AssistantThreadActions
             throw new KernelException($"Agent Failure - {nameof(OpenAIAssistantAgent)} agent is deleted: {agent.Id}.");
         }
 
-        ToolDefinition[]? tools = [.. agent.Tools, .. agent.Kernel.Plugins.SelectMany(p => p.Select(f => f.ToToolDefinition(p.Name, FunctionDelimiter)))];
+        ToolDefinition[]? tools = [.. agent.Tools, .. kernel.Plugins.SelectMany(p => p.Select(f => f.ToToolDefinition(p.Name, FunctionDelimiter)))];
 
         logger.LogOpenAIAssistantCreatingRun(nameof(InvokeAsync), threadId);
 
@@ -190,7 +172,7 @@ internal static class AssistantThreadActions
                 if (activeFunctionSteps.Length > 0)
                 {
                     // Emit function-call content
-                    yield return GenerateFunctionCallContent(agent.GetName(), activeFunctionSteps);
+                    yield return (IsVisible: false, Message: GenerateFunctionCallContent(agent.GetName(), activeFunctionSteps));
 
                     // Invoke functions for each tool-step
                     IEnumerable<Task<FunctionResultContent>> functionResultTasks = ExecuteFunctionSteps(agent, activeFunctionSteps, cancellationToken);
@@ -224,12 +206,14 @@ internal static class AssistantThreadActions
 
                     foreach (RunStepToolCall toolCall in toolCallDetails.ToolCalls)
                     {
+                        bool isVisible = false;
                         ChatMessageContent? content = null;
 
                         // Process code-interpreter content
                         if (toolCall is RunStepCodeInterpreterToolCall toolCodeInterpreter)
                         {
                             content = GenerateCodeInterpreterContent(agent.GetName(), toolCodeInterpreter);
+                            isVisible = true;
                         }
                         // Process function result content
                         else if (toolCall is RunStepFunctionToolCall toolFunction)
@@ -242,7 +226,7 @@ internal static class AssistantThreadActions
                         {
                             ++messageCount;
 
-                            yield return content;
+                            yield return (isVisible, Message: content);
                         }
                     }
                 }
@@ -255,29 +239,13 @@ internal static class AssistantThreadActions
 
                     if (message is not null)
                     {
-                        AuthorRole role = new(message.Role.ToString());
+                        ChatMessageContent content = GenerateMessageContent(agent.GetName(), message);
 
-                        foreach (MessageContent itemContent in message.ContentItems)
+                        if (content.Items.Count > 0)
                         {
-                            ChatMessageContent? content = null;
+                            ++messageCount;
 
-                            // Process text content
-                            if (itemContent is MessageTextContent contentMessage)
-                            {
-                                content = GenerateTextMessageContent(agent.GetName(), role, contentMessage);
-                            }
-                            // Process image content
-                            else if (itemContent is MessageImageFileContent contentImage)
-                            {
-                                content = GenerateImageFileContent(agent.GetName(), role, contentImage);
-                            }
-
-                            if (content is not null)
-                            {
-                                ++messageCount;
-
-                                yield return content;
-                            }
+                            yield return (IsVisible: true, Message: content);
                         }
                     }
                 }
@@ -383,6 +351,38 @@ internal static class AssistantThreadActions
         }
     }
 
+    private static ChatMessageContent GenerateMessageContent(string? assistantName, ThreadMessage message)
+    {
+        AuthorRole role = new(message.Role.ToString());
+
+        ChatMessageContent content =
+            new(role, content: null)
+            {
+                AuthorName = assistantName,
+            };
+
+        foreach (MessageContent itemContent in message.ContentItems)
+        {
+            // Process text content
+            if (itemContent is MessageTextContent contentMessage)
+            {
+                content.Items.Add(new TextContent(contentMessage.Text.Trim()));
+
+                foreach (MessageTextAnnotation annotation in contentMessage.Annotations)
+                {
+                    content.Items.Add(GenerateAnnotationContent(annotation));
+                }
+            }
+            // Process image content
+            else if (itemContent is MessageImageFileContent contentImage)
+            {
+                content.Items.Add(new FileReferenceContent(contentImage.FileId));
+            }
+        }
+
+        return content;
+    }
+
     private static AnnotationContent GenerateAnnotationContent(MessageTextAnnotation annotation)
     {
         string? fileId = null;
@@ -405,52 +405,17 @@ internal static class AssistantThreadActions
             };
     }
 
-    private static ChatMessageContent GenerateImageFileContent(string agentName, AuthorRole role, MessageImageFileContent contentImage)
-    {
-        return
-            new ChatMessageContent(
-                role,
-                [
-                    new FileReferenceContent(contentImage.FileId)
-                ])
-            {
-                AuthorName = agentName,
-            };
-    }
-
-    private static ChatMessageContent? GenerateTextMessageContent(string agentName, AuthorRole role, MessageTextContent contentMessage)
-    {
-        ChatMessageContent? messageContent = null;
-
-        string textContent = contentMessage.Text.Trim();
-
-        if (!string.IsNullOrWhiteSpace(textContent))
-        {
-            messageContent =
-                new(role, textContent)
-                {
-                    AuthorName = agentName
-                };
-
-            foreach (MessageTextAnnotation annotation in contentMessage.Annotations)
-            {
-                messageContent.Items.Add(GenerateAnnotationContent(annotation));
-            }
-        }
-
-        return messageContent;
-    }
-
     private static ChatMessageContent GenerateCodeInterpreterContent(string agentName, RunStepCodeInterpreterToolCall contentCodeInterpreter)
     {
         return
             new ChatMessageContent(
-                AuthorRole.Tool,
+                AuthorRole.Assistant,
                 [
                     new TextContent(contentCodeInterpreter.Input)
                 ])
             {
                 AuthorName = agentName,
+                Metadata = new Dictionary<string, object?> { { OpenAIAssistantAgent.CodeInterpreterMetadataKey, true } },
             };
     }
 
